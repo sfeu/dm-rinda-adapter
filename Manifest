@@ -1,0 +1,7 @@
+Manifest
+Rakefile
+dm-rinda-adapter.gemspec
+lib/dm-rinda-adapter.rb
+spec/dm-rinda-adapter.spec
+spec/spec.opts
+spec/spec_helper.rb
