@@ -34,7 +34,8 @@ module DataMapper
           saveblock = { }
           
           resource.attributes.each do |key, value|
-            saveblock[key.to_s]=convert_to_ts(resource.model.properties[key].field, value)
+            DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
+            saveblock[key.to_s]=convert_to_ts(resource.model.properties[key].type, value)
           end 
           # add model name to be included into tuple
           saveblock["_model_"]=resources.first.model.to_s
@@ -56,12 +57,27 @@ module DataMapper
       #
       # @api semipublic
       def read(query)
+       
+        
         DataMapper.logger <<  "query #{query.model.to_s}"
+        DataMapper.logger <<  "query #{query.fields.inspect}"
         queryblock = generate_query(query.model)
         DataMapper.logger <<  "ts query #{queryblock.inspect}"
         result=@ts.read_all(queryblock)
+        
         DataMapper.logger <<  "result  #{result.inspect}"
+        #Kernel.const_get(s)
 
+        query.fields.each do |property|
+          if (property.type == DataMapper::Types::Discriminator)
+            key = property.name.to_s
+            result.each do |entry|
+              entry[key]=Kernel.const_get(entry[key])
+            end
+          end
+        end
+         DataMapper.logger <<  "result after  transformation of discriminators  #{result.inspect}"
+        
         query.filter_records(result)
       end
 
@@ -153,12 +169,13 @@ module DataMapper
       end
       
       def convert_to_ts(key,value)
-        name = key.to_s
-        case value
-        when DateTime
-          value = value.to_time
-        end
-        value
+        DataMapper.logger <<  "key1 #{key.inspect} convert #{value.inspect} class #{value.class}"        
+                 
+        if (key== DataMapper::Types::Discriminator)
+          return value.to_s
+        else
+          return value
+        end 
       end
       
     end # class InMemoryAdapter
