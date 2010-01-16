@@ -38,7 +38,7 @@ module DataMapper
             saveblock[key.to_s]=convert_to_ts(resource.model.properties[key].type, value)
           end 
           # add model name to be included into tuple
-          saveblock["_model_"]=resources.first.model.to_s
+          saveblock["_model_"]=resources.first.model.storage_name(name).to_s
 
           DataMapper.logger <<  "write #{saveblock.inspect}"
           @ts.write saveblock
@@ -141,7 +141,7 @@ module DataMapper
       
       def generate_query(model)
         queryblock={ }
-        queryblock["_model_"]=model.to_s
+        queryblock["_model_"]=model.storage_name(name).to_s
         model.properties.each do |property|
           queryblock[property.name.to_s]=nil
         end 
