@@ -72,7 +72,7 @@ module DataMapper
           if (property.type == DataMapper::Types::Discriminator)
             key = property.name.to_s
             result.each do |entry|
-              entry[key]=Kernel.const_get(entry[key])
+              entry[key]=eval(entry[key])
             end
           end
         end
