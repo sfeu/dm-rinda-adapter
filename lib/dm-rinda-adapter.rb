@@ -137,6 +137,21 @@ module DataMapper
         records_to_delete.size
       end
 
+      # Returns a tupleSpace Observer that waits for an {action} bason on a hash of 
+      # {conditions}
+      def notify(resource,action,conditions)
+        query = generate_query(resource.model)
+        DataMapper.logger <<  "notify query generated #{query.inspect}"
+        newconditions={}  
+        conditions.each do |key, value|
+            newconditions[key.to_s]=value.to_s
+          end 
+        query = query.merge newconditions
+        DataMapper.logger <<  "notify query after merge of conditions #{query.inspect}"
+        
+        @ts.notify action,query
+      end
+      
       private
       
       def generate_query(model)
@@ -148,6 +163,8 @@ module DataMapper
         queryblock
       end
 
+      
+      
       # Make a new instance of the adapter. The @records ivar is the 'data-store'
       # for this adapter. It is not shared amongst multiple incarnations of this
       # adapter, eg DataMapper.setup(:default, :adapter => :in_memory);
