@@ -27,14 +27,14 @@ module DataMapper
 
         resources.each do |resource|
         
-          DataMapper.logger <<  "res #{resource.inspect}"
+        #  DataMapper.logger <<  "res #{resource.inspect}"
           initialize_serial(resource, rand(2**32))
-          DataMapper.logger <<  "att #{resource.attributes(:field).inspect}"
+          #DataMapper.logger <<  "att #{resource.attributes(:field).inspect}"
           
           saveblock = { }
           
           resource.attributes.each do |key, value|
-            DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
+            # DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
             saveblock[key.to_s]=convert_to_ts(resource.model.properties[key].type, value)
           end 
           # add model name to be included into tuple
@@ -59,13 +59,13 @@ module DataMapper
       def read(query)
        
         
-        DataMapper.logger <<  "query #{query.model.to_s}"
-        DataMapper.logger <<  "query #{query.fields.inspect}"
-        queryblock = generate_query(query.model)
+#        DataMapper.logger <<  "query #{query.model.to_s}"
+ #       DataMapper.logger <<  "query #{query.fields.inspect}"
+        queryblock = generate_query_with_conditions(query)
         DataMapper.logger <<  "ts query #{queryblock.inspect}"
         result=@ts.read_all(queryblock)
         
-        DataMapper.logger <<  "result  #{result.inspect}"
+#        DataMapper.logger <<  "result  #{result.inspect}"
         #Kernel.const_get(s)
 
         query.fields.each do |property|
@@ -162,9 +162,58 @@ module DataMapper
         end 
         queryblock
       end
+      
+      def generate_query_with_conditions(query)
+        model = query.model
+       
+        queryblock={ }
+        queryblock["_model_"]=model.storage_name(name).to_s
+        
+        properties = model.properties       
+        properties.each do |property|
+          queryblock[property.name.to_s]=nil
+        end 
+        
+        DataMapper.logger << "Conditions #{query.conditions.inspect}"
+               
+        conditions_statement(query.conditions, query,queryblock )
+       
+      end
+     
+      def comparison_statement(comparison,queryblock)
+        DataMapper.logger << "comparison #{comparison.inspect}"
+        if comparison.slug == :eql and not comparison.relationship?
+          subject = comparison.subject            
+          column_name = subject.field
+          value   = comparison.value
+          queryblock[column_name]=value
+        end
+        return queryblock
+      end
+      
+      def conditions_statement(conditions,query,queryblock)
+        case conditions
+     #       when Query::Conditions::NotOperation then negate_operation(conditions.operand, qualify)
+        when Query::Conditions::AbstractOperation  then operation_statement(conditions,query,queryblock)
+        when Query::Conditions::AbstractComparison then comparison_statement(conditions,queryblock)
+       #     when Array
+        #      statement, bind_values = conditions  # handle raw conditions
+          #    [ "(#{statement})", bind_values ].compact
+         # end
+        else
+          return queryblock
+        end 
+      end
+      
+      # @api private
+      def operation_statement(operation,query,queryblock)
+        operation.each do |operand|
+          DataMapper.logger << "operation #{operand.inspect}"
+          queryblock,properties = conditions_statement(operand, query,queryblock)
+        end
+        return queryblock
+      end
 
-      
-      
       # Make a new instance of the adapter. The @records ivar is the 'data-store'
       # for this adapter. It is not shared amongst multiple incarnations of this
       # adapter, eg DataMapper.setup(:default, :adapter => :in_memory);
@@ -186,7 +235,7 @@ module DataMapper
       end
       
       def convert_to_ts(key,value)
-        DataMapper.logger <<  "key1 #{key.inspect} convert #{value.inspect} class #{value.class}"        
+#        DataMapper.logger <<  "key1 #{key.inspect} convert #{value.inspect} class #{value.class}"        
                  
         if (key== DataMapper::Types::Discriminator)
           return value.to_s
