@@ -23,20 +23,30 @@ module DataMapper
       #
       # @api semipublic
       def create(resources)
+        name = self.name
         DataMapper.logger <<  "create #{resources.first.model}"
 
         resources.each do |resource|
         
-        #  DataMapper.logger <<  "res #{resource.inspect}"
+          #  DataMapper.logger <<  "res #{resource.inspect}"
           initialize_serial(resource, rand(2**32))
           #DataMapper.logger <<  "att #{resource.attributes(:field).inspect}"
           
           saveblock = { }
           
           resource.attributes.each do |key, value|
-            # DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
+       #     DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
             saveblock[key.to_s]=convert_to_ts(resource.model.properties[key].type, value)
-          end 
+          end
+#          model      = resource.model
+ #         attributes = resource.dirty_attributes
+          
+   #       model.properties_with_subclasses(name).each do |property|
+     #       next unless attributes.key?(property)
+            
+       #     value = attributes[property]
+        #    saveblock[property.field.to_s]=convert_to_ts(property.type, value)
+          #end  
           # add model name to be included into tuple
           saveblock["_model_"]=resources.first.model.storage_name(name).to_s
 
@@ -94,8 +104,10 @@ module DataMapper
       # @api semipublic
       def update(attributes, collection)
         DataMapper.logger <<  "update attributes: #{attributes.inspect} collection: #{collection.inspect}"
+        query = collection.query
         
-        query = generate_query(collection.model)
+        query = generate_query_with_conditions(query)
+        # generate_query(collection.model)
         result=@ts.read_all(query)
         
         records_to_delete = collection.query.filter_records(result)
@@ -169,32 +181,44 @@ module DataMapper
         queryblock={ }
         queryblock["_model_"]=model.storage_name(name).to_s
         
-        properties = model.properties       
-        properties.each do |property|
-          queryblock[property.name.to_s]=nil
+#        properties = model.properties       
+#        properties.each do |property|
+        query.fields.each do |property|
+          queryblock[property.field.to_s]=nil
         end 
         
         DataMapper.logger << "Conditions #{query.conditions.inspect}"
                
-        conditions_statement(query.conditions, query,queryblock )
+        conditions_statement(query.conditions, queryblock )
        
       end
      
       def comparison_statement(comparison,queryblock)
-        DataMapper.logger << "comparison #{comparison.inspect}"
+                
+        value   = comparison.value
+
         if comparison.slug == :eql and not comparison.relationship?
+          DataMapper.logger << "comparison with eql #{comparison.inspect}"
+
           subject = comparison.subject            
           column_name = subject.field
-          value   = comparison.value
           queryblock[column_name]=value
+#        elsif comparison.relationship?
+#          DataMapper.logger << "comparison with relationship #{comparison.inspect}"
+
+ #         if value.respond_to?(:query) && value.respond_to?(:loaded?) && !value.loaded?
+   #         return subquery(value.query, subject, qualify)
+     #     else
+       #     return conditions_statement(comparison.foreign_key_mapping, queryblock)
+        #  end
         end
         return queryblock
       end
       
-      def conditions_statement(conditions,query,queryblock)
+      def conditions_statement(conditions,queryblock)
         case conditions
      #       when Query::Conditions::NotOperation then negate_operation(conditions.operand, qualify)
-        when Query::Conditions::AbstractOperation  then operation_statement(conditions,query,queryblock)
+        when Query::Conditions::AbstractOperation  then operation_statement(conditions,queryblock)
         when Query::Conditions::AbstractComparison then comparison_statement(conditions,queryblock)
        #     when Array
         #      statement, bind_values = conditions  # handle raw conditions
@@ -206,10 +230,10 @@ module DataMapper
       end
       
       # @api private
-      def operation_statement(operation,query,queryblock)
+      def operation_statement(operation,queryblock)
         operation.each do |operand|
           DataMapper.logger << "operation #{operand.inspect}"
-          queryblock,properties = conditions_statement(operand, query,queryblock)
+          queryblock = conditions_statement(operand,queryblock)
         end
         return queryblock
       end
