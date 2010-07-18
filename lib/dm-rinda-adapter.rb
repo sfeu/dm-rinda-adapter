@@ -154,7 +154,14 @@ module DataMapper
       def notify(resource,action,conditions)
         query = generate_query(resource.model)
         DataMapper.logger <<  "notify query generated #{query.inspect}"
-        newconditions={}  
+        DataMapper.logger <<  "notify query generated11111 #{resource.attributes.inspect}"
+        
+        # ressource.attributes.key?("classtype")
+            
+       #     value = attributes[property]
+        
+        newconditions={}
+        newconditions["classtype"]=resource.attributes[:classtype].to_s
         conditions.each do |key, value|
             newconditions[key.to_s]=value.to_s
           end 
