@@ -161,7 +161,7 @@ module DataMapper
        #     value = attributes[property]
         
         newconditions={}
-        newconditions["classtype"]=resource.attributes[:classtype].to_s
+        #newconditions["classtype"]=resource.attributes[:classtype].to_s
         conditions.each do |key, value|
             newconditions[key.to_s]=value.to_s
           end 
