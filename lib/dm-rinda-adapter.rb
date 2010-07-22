@@ -3,7 +3,29 @@ gem 'dm-core', '>=0.10.0'
 require "rinda/tuplespace"
 
 module DataMapper
+   
+  class Repository
+    def notify(action,query,callback,model,dm_query)
+      adapter.notify(action,query,callback,model,dm_query)
+    end
+   end
+  
+  module Model
+    def notify(action,query,callback)
+      q = scoped_query(query)
+      q.repository.notify(action,query,callback,self,q)
+    end
+  end
+  
   module Adapters
+   
+    #monkey patching new notification methods
+     class AbstractAdapter
+       def notify(action,query,callback,model,dm_query)
+         raise NotImplementedError, "#{self.class}#notify not implemented"
+       end
+     end # class AbstractAdapter
+    
     # This is probably the simplest functional adapter possible. It simply
     # stores and queries from a hash containing the model classes as keys,
     # and an array of hashes. It is not persistent whatsoever; when the Ruby
@@ -149,12 +171,35 @@ module DataMapper
         records_to_delete.size
       end
 
+      def notify(action,query,callback,model,dm_query)
+        observer = notifyInternal(model, action, query)
+        x = Thread.start do
+           DataMapper.logger <<  "waiting on #{model.to_s} model new #{action} changes with a state change to #{query}"
+          observer.each do |e,t|
+            if check_descendents(model,t) # quick patch that belongs into tuplespace 
+               DataMapper.logger <<   "#{e} change detected for #{t.inspect}"
+              resource = model.first(dm_query)
+              
+              DataMapper.logger <<   "found resource  #{resource.inspect}"
+              callback.call resource
+              # t #@source_model.get(t["name"])
+              #  else
+              #  p " not the right class type or descendent  #{t.inspect}"
+            end # 
+          end # 
+        end # 
+        return x
+      end
+
+      private
+      
+
       # Returns a tupleSpace Observer that waits for an {action} bason on a hash of 
       # {conditions}
-      def notify(resource,action,conditions)
-        query = generate_query(resource.model)
+      def notifyInternal(model,action,conditions)
+        query = generate_query(model)
         DataMapper.logger <<  "notify query generated #{query.inspect}"
-        DataMapper.logger <<  "notify query generated11111 #{resource.attributes.inspect}"
+#        DataMapper.logger <<  "notify query generated11111 #{resource.attributes.inspect}"
         
         # ressource.attributes.key?("classtype")
             
@@ -170,8 +215,19 @@ module DataMapper
         
         @ts.notify action,query
       end
+     
+          def check_descendents (model,result)
+      descendents = model.descendants.to_ary
       
-      private
+        # transform array to hash for quicker lookup
+      desc_lookup = Hash[*descendents.collect { |v|
+               [v.to_s, v.to_s]
+             }.flatten]
+      # p " identified following  descendents  #{desc_lookup.inspect}"
+         #result = {"classtype" => nil }
+       return  desc_lookup[result["classtype"]]
+    end
+
       
       def generate_query(model)
         queryblock={ }
