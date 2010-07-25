@@ -178,7 +178,16 @@ module DataMapper
           observer.each do |e,t|
             if check_descendents(model,t) # quick patch that belongs into tuplespace 
                DataMapper.logger <<   "#{e} change detected for #{t.inspect}"
-              resource = model.first(dm_query)
+              
+              repository = dm_query.repository
+              model      = dm_query.model
+              identity_fields = model.key(repository.name).map &:name
+                            
+               DataMapper.logger <<   "rep: #{repository.name}  model:#{model} identifier key: #{identity_fields.inspect}"
+              
+              retrieve = identity_fields.map do |x| t[x.to_s] end
+              
+              resource = model.get(*retrieve)
               
               DataMapper.logger <<   "found resource  #{resource.inspect}"
               callback.call resource
