@@ -11,7 +11,7 @@ def with_gem(gemname, &blk)
   end
 end
 
-Echoe.new('dm-rinda-adapter', '0.0.1') do |p|
+Echoe.new('dm-rinda-adapter', '0.1.0') do |p|
   p.description    = "A datamapper adapter to connect to a rinda tuplespace"
   p.url            = "http://github.com/sfeu/dm-rinda-adapter"
   p.author         = "Sebastian Feuerstack"

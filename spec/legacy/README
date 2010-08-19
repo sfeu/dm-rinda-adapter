@@ -1,0 +1,6 @@
+This directory contains the old specs, written for 0.1.0. They are retained
+here while the specs are separated into spec/{public,semipublic}.
+
+Examples marked as @done indicate those for which there are equivalents in
+spec/{public,semipublic}. Once all specs are moved (or rewritten, as
+appropriate), the legacy specs will be removed.

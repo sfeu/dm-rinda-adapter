@@ -1,6 +1,7 @@
 require 'dm-core'
 gem 'dm-core', '>=0.10.0'
 require "rinda/tuplespace"
+require 'monitor'
 
 module DataMapper
    
@@ -35,6 +36,8 @@ module DataMapper
     # budding adapter developers, so it is critical that it remains well documented
     # and up to date.
     class RindaAdapter < AbstractAdapter
+      #include MonitorMixin
+      
       # Used by DataMapper to put records into a data-store: "INSERT" in SQL-speak.
       # It takes an array of the resources (model instances) to be saved. Resources
       # each have a key that can be used to quickly look them up later without
@@ -46,7 +49,7 @@ module DataMapper
       # @api semipublic
       def create(resources)
         name = self.name
-        DataMapper.logger <<  "create #{resources.first.model}"
+    #    DataMapper.logger <<  "create #{resources.first.model}"
 
         resources.each do |resource|
         
@@ -72,8 +75,11 @@ module DataMapper
           # add model name to be included into tuple
           saveblock["_model_"]=resources.first.model.storage_name(name).to_s
 
-          DataMapper.logger <<  "write #{saveblock.inspect}"
-          @ts.write saveblock
+     #     DataMapper.logger <<  "write #{saveblock.inspect}"
+          @monitor.synchronize do 
+            @ts.write saveblock
+          end
+        
         end
       end
 
@@ -94,7 +100,7 @@ module DataMapper
 #        DataMapper.logger <<  "query #{query.model.to_s}"
  #       DataMapper.logger <<  "query #{query.fields.inspect}"
         queryblock = generate_query_with_conditions(query)
-        DataMapper.logger <<  "ts query #{queryblock.inspect}"
+ #       DataMapper.logger <<  "ts query #{queryblock.inspect}"
         result=@ts.read_all(queryblock)
         
 #        DataMapper.logger <<  "result  #{result.inspect}"
@@ -108,7 +114,7 @@ module DataMapper
             end
           end
         end
-         DataMapper.logger <<  "result after  transformation of discriminators  #{result.inspect}"
+#         DataMapper.logger <<  "result after  transformation of discriminators  #{result.inspect}"
         
         query.filter_records(result)
       end
@@ -130,22 +136,29 @@ module DataMapper
         
         query = generate_query_with_conditions(query)
         # generate_query(collection.model)
-        result=@ts.read_all(query)
         
-        records_to_delete = collection.query.filter_records(result)
-        
-        records_to_delete.each do |record|
-          result=@ts.take(record)
-          saveblock ={ }
-          attributes.each do |key, value|
-             DataMapper.logger <<  "key: #{key.name} value: #{value}"
-            saveblock[key.name.to_s]=convert_to_ts(key.name, value)
-          end 
-          new = result.merge  saveblock
-          @ts.write(new)
-          DataMapper.logger <<  "replaced: #{result.inspect} with: #{new.inspect}"
-        end
-        records_to_delete.size
+        records_to_delete=[]
+        @monitor.synchronize do 
+          result=@ts.read_all(query)
+          
+          records_to_delete = collection.query.filter_records(result)
+          
+          records_to_delete.each do |record|
+            result=@ts.take(record)
+            saveblock ={ }
+            attributes.each do |key, value|
+              #   DataMapper.logger <<  "key: #{key.name} value: #{value}"
+              saveblock[key.name.to_s]=convert_to_ts(key.name, value)
+            end 
+            new = result.merge  saveblock
+            @ts.write(new)
+            
+            DataMapper.logger <<  "replaced: #{result.inspect} with: #{new.inspect}"
+          end
+        end # class synchronize
+
+        return records_to_delete.size  
+        #end # class mutex synchronize
       end
 
       # Destroys all the records matching the given query. "DELETE" in SQL.
@@ -158,51 +171,56 @@ module DataMapper
       #
       # @api semipublic
       def delete(collection)
-        DataMapper.logger <<  "delete #{collection.model.to_s}"
+        #DataMapper.logger <<  "delete #{collection.model.to_s}"
         query = generate_query(collection.model)
-        result=@ts.read_all(query)
+        # @mutex.synchronize do
+          
+          result=@ts.read_all(query)
         
-        records_to_delete = collection.query.filter_records(result)
-        DataMapper.logger <<  "entries to delete #{records_to_delete.inspect}"
+          records_to_delete = collection.query.filter_records(result)
+          #DataMapper.logger <<  "entries to delete #{records_to_delete.inspect}"
         
-        records_to_delete.each do |record|
-          result=@ts.take(record)
-        end
+          records_to_delete.each do |record|
+            result=@ts.take(record)
+          end
         records_to_delete.size
+        #end # class mutex synchronize
       end
 
       def notify(action,query,callback,model,dm_query)
         observer = notifyInternal(model, action, query)
         x = Thread.start do
-           DataMapper.logger <<  "waiting on #{model.to_s} model new #{action} changes with a state change to #{query}"
+          DataMapper.logger <<  "waiting on #{model.to_s} model new #{action} changes with a state change to #{query.inspect}"
+          
           observer.each do |e,t|
-            if check_descendents(model,t) # quick patch that belongs into tuplespace 
-               DataMapper.logger <<   "#{e} change detected for #{t.inspect}"
+            @monitor.synchronize {        
+              DataMapper.logger <<  "TRIGGERED on #{model.to_s} model new #{action} changes with a state change to #{query.inspect}"
               
-              repository = dm_query.repository
-              model      = dm_query.model
-              identity_fields = model.key(repository.name).map &:name
-                            
-               DataMapper.logger <<   "rep: #{repository.name}  model:#{model} identifier key: #{identity_fields.inspect}"
-              
-              retrieve = identity_fields.map do |x| t[x.to_s] end
-              
-              resource = model.get(*retrieve)
-              
-              DataMapper.logger <<   "found resource  #{resource.inspect}"
-              callback.call resource
-              # t #@source_model.get(t["name"])
-              #  else
-              #  p " not the right class type or descendent  #{t.inspect}"
-            end # 
-          end # 
-        end # 
+              if check_descendents(model,t) # quick patch that belongs into tuplespace 
+                DataMapper.logger <<   "#{e} change detected for #{t.inspect}"
+                resource = nil
+
+                repository = dm_query.repository
+                model      = dm_query.model
+                identity_fields = model.key(repository.name).map &:name
+                
+                DataMapper.logger <<   "rep: #{repository.name}  model:#{model} identifier key: #{identity_fields.inspect}"
+                
+                retrieve = identity_fields.map do |x| t[x.to_s] end
+                
+                resource = model.get(*retrieve)
+                DataMapper.logger <<   "found resource  #{resource.inspect}"
+
+                callback.call resource
+              end
+            } 
+          end 
+        end 
         return x
       end
 
       private
       
-
       # Returns a tupleSpace Observer that waits for an {action} bason on a hash of 
       # {conditions}
       def notifyInternal(model,action,conditions)
@@ -226,6 +244,9 @@ module DataMapper
       end
      
           def check_descendents (model,result)
+            if (result["classtype"].nil?) # in case there is no inheritanence relationship
+              return true
+            end
       descendents = model.descendants.to_ary
       
         # transform array to hash for quicker lookup
@@ -259,22 +280,25 @@ module DataMapper
           queryblock[property.field.to_s]=nil
         end 
         
-        DataMapper.logger << "Conditions #{query.conditions.inspect}"
+   #     DataMapper.logger << "Conditions #{query.conditions.inspect}"
                
         conditions_statement(query.conditions, queryblock )
        
       end
      
-      def comparison_statement(comparison,queryblock)
+      def comparison_statement(comparison,queryblock,negate=false)
                 
         value   = comparison.value
 
         if comparison.slug == :eql and not comparison.relationship?
-          DataMapper.logger << "comparison with eql #{comparison.inspect}"
+     #     DataMapper.logger << "comparison with eql #{comparison.inspect}"
 
-          subject = comparison.subject            
-          column_name = subject.field
-          queryblock[column_name]=value
+          if not negate 
+            subject = comparison.subject            
+            column_name = subject.field
+            queryblock[column_name]=value
+          end
+
 #        elsif comparison.relationship?
 #          DataMapper.logger << "comparison with relationship #{comparison.inspect}"
 
@@ -287,29 +311,42 @@ module DataMapper
         return queryblock
       end
       
-      def conditions_statement(conditions,queryblock)
+      def conditions_statement(conditions,queryblock, negate = false)
         case conditions
-     #       when Query::Conditions::NotOperation then negate_operation(conditions.operand, qualify)
-        when Query::Conditions::AbstractOperation  then operation_statement(conditions,queryblock)
-        when Query::Conditions::AbstractComparison then comparison_statement(conditions,queryblock)
-       #     when Array
-        #      statement, bind_values = conditions  # handle raw conditions
-          #    [ "(#{statement})", bind_values ].compact
-         # end
-        else
-          return queryblock
-        end 
+        when Query::Conditions::NotOperation then negate_operation(conditions.operand, queryblock,negate)
+        when Query::Conditions::AbstractOperation  then operation_statement(conditions,queryblock,negate)
+        when Query::Conditions::AbstractComparison then comparison_statement(conditions,queryblock,negate)
+        when Array
+          statement, bind_values = conditions  # handle raw conditions
+          [ "(#{statement})", bind_values ].compact
+     
+      else
+        return queryblock
+      end 
       end
       
       # @api private
-      def operation_statement(operation,queryblock)
+      def operation_statement(operation,queryblock,negate=false)
         operation.each do |operand|
-          DataMapper.logger << "operation #{operand.inspect}"
-          queryblock = conditions_statement(operand,queryblock)
+          # DataMapper.logger << "operation #{operand.inspect}"
+          queryblock = conditions_statement(operand,queryblock,negate)
         end
         return queryblock
       end
 
+             # @api private
+        def negate_operation(operand, queryblock,negate)
+          if negate
+            return  conditions_statement(operand, queryblock,false)    
+          else
+            return  conditions_statement(operand, queryblock,true)    
+          end
+          
+          #statement = "NOT(#{statement})" unless statement.nil?
+          # [ statement, bind_values ]
+        #  return queryblick
+        end
+      
       # Make a new instance of the adapter. The @records ivar is the 'data-store'
       # for this adapter. It is not shared amongst multiple incarnations of this
       # adapter, eg DataMapper.setup(:default, :adapter => :in_memory);
@@ -326,8 +363,12 @@ module DataMapper
       def initialize(name, options = {})
         super
         @records = {}
-               
+        if (@options[:local])
+          @ts = @options[:local]
+        else
         @ts = DRbObject.new(nil, "druby://#{@options[:host]}:#{@options[:port]}")
+       end
+           @monitor = Monitor.new
       end
       
       def convert_to_ts(key,value)
@@ -339,7 +380,7 @@ module DataMapper
           return value
         end 
       end
-      
+
     end # class InMemoryAdapter
 
     const_added(:RindaAdapter)
