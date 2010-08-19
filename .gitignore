@@ -1,2 +1,3 @@
+/.gitignore~
 /.yardoc
-pkg/*
+pkg/**
