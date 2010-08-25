@@ -1,6 +1,6 @@
 Manifest
 Rakefile
-dm-rinda-adapter.gemspec
+lib/rinda-patch.rb
 lib/rinda_adapter.rb
 spec/legacy/README
 spec/legacy/adapter_shared_spec.rb

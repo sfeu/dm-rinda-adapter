@@ -1,4 +1,6 @@
 
+require 'rubygems'; require 'ruby-debug'; 
+
 share_examples_for 'An Adapter' do
 
   def self.adapter_supports?(*methods)
@@ -23,6 +25,7 @@ share_examples_for 'An Adapter' do
       property :num_spots, Integer
       property :striped,   Boolean
     end
+    
 
     # create all tables and constraints before each spec
     if @repository.respond_to?(:auto_migrate!)
@@ -134,7 +137,7 @@ share_examples_for 'An Adapter' do
     describe 'query matching' do
       before :all do
         @red = Heffalump.create(:color => 'red')
-        @two = Heffalump.create(:num_spots => 2)
+        @two = Heffalump.create( :num_spots => 2)
         @five = Heffalump.create(:num_spots => 5)
       end
 
@@ -173,22 +176,30 @@ share_examples_for 'An Adapter' do
           it 'should not include objects with a nil value' do
             Heffalump.all(:color.not => nil).should_not be_include(@two)
           end
-
+        
           it 'should be able to search for object with a nil value using required properties' do
-            r = Heffalump.all(:id.not => nil)
-            r.should be_include  @red
-            r.should be_include  @two
-            r.should be_include  @five 
-            r.length.should == 3
+            Heffalump.all(:id.not => nil).should == [ @red, @two, @five ]
           end
 
           it 'should be able to search for objects not in an empty list (match all)' do
-            r=Heffalump.all(:color.not => [])
-            r.should be_include  @red
-            r.should be_include  @two
-            r.should be_include  @five 
-            r.length.should == 3
+            Heffalump.all(:color.not => []).should == [ @red, @two, @five ]
           end
+          
+        #  it 'should be able to search for object with a nil value using required properties' do
+         #   r = Heffalump.all(:id.not => nil)
+         #   r.should be_include  @red
+         #   r.should be_include  @two
+         #   r.should be_include  @five 
+         #   r.length.should == 3
+         # end
+
+          #it 'should be able to search for objects not in an empty list (match all)' do
+           # r=Heffalump.all(:color.not => [])
+           # r.should be_include  @red
+           # r.should be_include  @two
+           # r.should be_include  @five 
+           # r.length.should == 3
+          #end
 
           it 'should be able to search for objects in an empty list and another OR condition (match none on the empty list)' do
             Heffalump.all(:conditions => DataMapper::Query::Conditions::Operation.new(
@@ -312,7 +323,8 @@ share_examples_for 'An Adapter' do
           Heffalump.all(:limit => 2).length.should == 2
         end
       end
-    end
+      
+      end
   else
     it 'needs to support #read and #create to test query matching'
   end

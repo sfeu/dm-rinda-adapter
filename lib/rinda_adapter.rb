@@ -2,6 +2,7 @@ require 'dm-core'
 gem 'dm-core', '>=0.10.0'
 require "rinda/tuplespace"
 require 'monitor'
+require 'rinda-patch'
 
 module DataMapper
    
@@ -50,11 +51,13 @@ module DataMapper
       def create(resources)
         name = self.name
     #    DataMapper.logger <<  "create #{resources.first.model}"
-
+                
         resources.each do |resource|
-        
+          model      = resource.model
+          serial     = model.serial(name)
+ 
           #  DataMapper.logger <<  "res #{resource.inspect}"
-          initialize_serial(resource, rand(2**32))
+          #initialize_serial(resource, rand(2**32))
           #DataMapper.logger <<  "att #{resource.attributes(:field).inspect}"
           
           saveblock = { }
@@ -75,9 +78,17 @@ module DataMapper
           # add model name to be included into tuple
           saveblock["_model_"]=resources.first.model.storage_name(name).to_s
 
-     #     DataMapper.logger <<  "write #{saveblock.inspect}"
-          @monitor.synchronize do 
-            @ts.write saveblock
+         DataMapper.logger <<  "write #{saveblock.inspect}"
+          @monitor.synchronize do
+            if serial
+              id = @ts.writeID saveblock
+              serial.set!(resource, id)
+            else
+              @ts.write saveblock
+            end
+          
+          #  @ts.write saveblock
+            #initialize_serial(resource,id)
           end
         
         end
@@ -100,17 +111,18 @@ module DataMapper
 #        DataMapper.logger <<  "query #{query.model.to_s}"
  #       DataMapper.logger <<  "query #{query.fields.inspect}"
         queryblock = generate_query_with_conditions(query)
- #       DataMapper.logger <<  "ts query #{queryblock.inspect}"
+        DataMapper.logger <<  "ts query #{queryblock.inspect}"
         result=@ts.read_all(queryblock)
         
-#        DataMapper.logger <<  "result  #{result.inspect}"
+        DataMapper.logger <<  "result  #{result.inspect}"
         #Kernel.const_get(s)
 
         query.fields.each do |property|
           if (property.type == DataMapper::Types::Discriminator)
+            
             key = property.name.to_s
             result.each do |entry|
-              entry[key]=eval(entry[key])
+                        entry[key]=eval(entry[key].to_s)
             end
           end
         end
