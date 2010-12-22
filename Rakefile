@@ -18,6 +18,8 @@ Echoe.new('dm-rinda-adapter', '0.0.1') do |p|
   p.email          = "sebastian @nospam@ feuerstack.de"
   p.ignore_pattern = ["tmp/*", "script/*","#*.*#"]
   p.development_dependencies = []
+  p.need_tar_gz = false
+  p.need_tgz = false 
 end
 
 with_gem 'spec/rake/spectask' do
