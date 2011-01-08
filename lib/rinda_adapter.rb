@@ -378,7 +378,7 @@ module DataMapper
         if (@options[:local])
           @ts = @options[:local]
         else
-        @ts = Rinda::TupleSpaceProxy.new(DRbObject.new(nil, "druby://#{@options[:host]}:#{@options[:port]}"))
+        @ts = Rinda::TupleSpace.new(DRbObject.new(nil, "druby://#{@options[:host]}:#{@options[:port]}"))
        end
            @monitor = Monitor.new
       end
