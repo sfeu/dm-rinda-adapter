@@ -378,9 +378,9 @@ module DataMapper
         if (@options[:local])
           @ts = @options[:local]
         else
-        @ts = DRbObject.new(nil, "druby://#{@options[:host]}:#{@options[:port]}")
-       end
-           @monitor = Monitor.new
+          @ts = DRbObject.new_with_uri("druby://#{@options[:host]}:#{@options[:port]}")
+        end
+        @monitor = Monitor.new
       end
       
       def convert_to_ts(key,value)
