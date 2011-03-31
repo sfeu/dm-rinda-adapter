@@ -10,10 +10,18 @@ module DataMapper
     def notify(action,query,callback,model,dm_query)
       adapter.notify(action,query,callback,model,dm_query)
     end
-   end
+
+    def wait(action,query,callback,model,dm_query)
+      adapter.notify(action,query,callback,model,dm_query)
+    end
+  end
 
   module Model
     def notify(action,query,callback)
+      q = scoped_query(query)
+      q.repository.notify(action,query,callback,self,q)
+    end
+    def wait(action,query,callback)
       q = scoped_query(query)
       q.repository.notify(action,query,callback,self,q)
     end
@@ -22,11 +30,15 @@ module DataMapper
   module Adapters
 
     #monkey patching new notification methods
-     class AbstractAdapter
-       def notify(action,query,callback,model,dm_query)
-         raise NotImplementedError, "#{self.class}#notify not implemented"
-       end
-     end # class AbstractAdapter
+    class AbstractAdapter
+      def notify(action,query,callback,model,dm_query)
+        raise NotImplementedError, "#{self.class}#notify not implemented"
+      end
+      def wait(action,query,callback,model,dm_query)
+        raise NotImplementedError, "#{self.class}#wait not implemented"
+      end
+
+    end # class AbstractAdapter
 
     # This is probably the simplest functional adapter possible. It simply
     # stores and queries from a hash containing the model classes as keys,
@@ -50,7 +62,7 @@ module DataMapper
       # @api semipublic
       def create(resources)
         name = self.name
-    #    DataMapper.logger <<  "create #{resources.first.model}"
+        #    DataMapper.logger <<  "create #{resources.first.model}"
 
         resources.each do |resource|
           model      = resource.model
@@ -63,22 +75,22 @@ module DataMapper
           saveblock = { }
 
           resource.attributes.each do |key, value|
-       #     DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
+            #     DataMapper.logger <<  "before convert #{resource.model.properties[key].type}"
             saveblock[key.to_s]=convert_to_ts(resource.model.properties[key].type, value)
           end
 #          model      = resource.model
- #         attributes = resource.dirty_attributes
+          #         attributes = resource.dirty_attributes
 
-   #       model.properties_with_subclasses(name).each do |property|
-     #       next unless attributes.key?(property)
+          #       model.properties_with_subclasses(name).each do |property|
+          #       next unless attributes.key?(property)
 
-       #     value = attributes[property]
-        #    saveblock[property.field.to_s]=convert_to_ts(property.type, value)
+          #     value = attributes[property]
+          #    saveblock[property.field.to_s]=convert_to_ts(property.type, value)
           #end
           # add model name to be included into tuple
           saveblock["_model_"]=resources.first.model.storage_name(name).to_s
 
-         DataMapper.logger <<  "write #{saveblock.inspect}"
+          DataMapper.logger <<  "write #{saveblock.inspect}"
           @monitor.synchronize do
             if serial
               id = @ts.writeID saveblock
@@ -87,7 +99,7 @@ module DataMapper
               @ts.write saveblock
             end
 
-          #  @ts.write saveblock
+            #  @ts.write saveblock
             #initialize_serial(resource,id)
           end
 
@@ -109,7 +121,7 @@ module DataMapper
 
 
 #        DataMapper.logger <<  "query #{query.model.to_s}"
- #       DataMapper.logger <<  "query #{query.fields.inspect}"
+        #       DataMapper.logger <<  "query #{query.fields.inspect}"
         queryblock = generate_query_with_conditions(query)
         DataMapper.logger <<  "ts query #{queryblock.inspect}"
         result=@ts.read_all(queryblock)
@@ -122,7 +134,7 @@ module DataMapper
 
             key = property.name.to_s
             result.each do |entry|
-                        entry[key]=eval(entry[key].to_s)
+              entry[key]=eval(entry[key].to_s)
             end
           end
         end
@@ -187,21 +199,43 @@ module DataMapper
         query = generate_query(collection.model)
         # @mutex.synchronize do
 
-          result=@ts.read_all(query)
+        result=@ts.read_all(query)
 
-          records_to_delete = collection.query.filter_records(result)
-          #DataMapper.logger <<  "entries to delete #{records_to_delete.inspect}"
+        records_to_delete = collection.query.filter_records(result)
+        #DataMapper.logger <<  "entries to delete #{records_to_delete.inspect}"
 
-          records_to_delete.each do |record|
-            result=@ts.take(record)
-          end
+        records_to_delete.each do |record|
+          result=@ts.take(record)
+        end
         records_to_delete.size
         #end # class mutex synchronize
       end
 
-      def notify(action,query,callback,model,dm_query)
-        observer = notifyInternal(model, action, query)
+
+      def wait(action,query,callback,model,dm_query)
+
+        query = generate_query(model).merge create_conditions(dm_query)
+
         x = Thread.start do
+          begin
+            t = @ts.read query,10
+          end until t and check_descendents(model,t) # quick patch that belongs into tuplespace
+
+          repository = dm_query.repository
+          model      = dm_query.model
+          identity_fields = model.key(repository.name).map &:name
+
+          retrieve = identity_fields.map do |x| t[x.to_s] end
+
+          resource = model.get(*retrieve)
+          callback.call resource
+        end
+        x
+      end
+
+      def notify(action,query,callback,model,dm_query)
+        x = Thread.start do
+          observer = notifyInternal(model, action, query)
           DataMapper.logger <<  "waiting on #{model.to_s} model new #{action} changes with a state change to #{query.inspect}"
 
           observer.each do |e,t|
@@ -232,6 +266,18 @@ module DataMapper
       end
 
       private
+      def create_conditions(conditions)
+        newconditions={}
+        #newconditions["classtype"]=resource.attributes[:classtype].to_s
+        conditions.each do |key, value|
+          if value.is_a? Regexp
+            newconditions[key.to_s]=value
+          else
+            newconditions[key.to_s]=value.to_s
+          end
+        end
+        newconditions
+      end
 
       # Returns a tupleSpace Observer that waits for an {action} bason on a hash of
       # {conditions}
@@ -242,33 +288,31 @@ module DataMapper
 
         # ressource.attributes.key?("classtype")
 
-       #     value = attributes[property]
+        #     value = attributes[property]
 
-        newconditions={}
-        #newconditions["classtype"]=resource.attributes[:classtype].to_s
-        conditions.each do |key, value|
-            newconditions[key.to_s]=value.to_s
-          end
+        newconditions = create_conditions(conditions)
+
         query = query.merge newconditions
         DataMapper.logger <<  "notify query after merge of conditions #{query.inspect}"
 
         @ts.notify action,query
       end
 
-          def check_descendents (model,result)
-            if (result["classtype"].nil?) # in case there is no inheritanence relationship
-              return true
-            end
-      descendents = model.descendants.to_ary
+
+      def check_descendents (model,result)
+        if (result["classtype"].nil?) # in case there is no inheritanence relationship
+          return true
+        end
+        descendents = model.descendants.to_ary
 
         # transform array to hash for quicker lookup
-      desc_lookup = Hash[*descendents.collect { |v|
-               [v.to_s, v.to_s]
-             }.flatten]
-      # p " identified following  descendents  #{desc_lookup.inspect}"
-         #result = {"classtype" => nil }
-       return  desc_lookup[result["classtype"]]
-    end
+        desc_lookup = Hash[*descendents.collect { |v|
+          [v.to_s, v.to_s]
+        }.flatten]
+        # p " identified following  descendents  #{desc_lookup.inspect}"
+        #result = {"classtype" => nil }
+        return  desc_lookup[result["classtype"]]
+      end
 
 
       def generate_query(model)
@@ -292,7 +336,7 @@ module DataMapper
           queryblock[property.field.to_s]=nil
         end
 
-   #     DataMapper.logger << "Conditions #{query.conditions.inspect}"
+        #     DataMapper.logger << "Conditions #{query.conditions.inspect}"
 
         conditions_statement(query.conditions, queryblock )
 
@@ -303,7 +347,7 @@ module DataMapper
         value   = comparison.value
 
         if comparison.slug == :eql and not comparison.relationship?
-     #     DataMapper.logger << "comparison with eql #{comparison.inspect}"
+          #     DataMapper.logger << "comparison with eql #{comparison.inspect}"
 
           if not negate
             subject = comparison.subject
@@ -314,27 +358,27 @@ module DataMapper
 #        elsif comparison.relationship?
 #          DataMapper.logger << "comparison with relationship #{comparison.inspect}"
 
- #         if value.respond_to?(:query) && value.respond_to?(:loaded?) && !value.loaded?
-   #         return subquery(value.query, subject, qualify)
-     #     else
-       #     return conditions_statement(comparison.foreign_key_mapping, queryblock)
-        #  end
+          #         if value.respond_to?(:query) && value.respond_to?(:loaded?) && !value.loaded?
+          #         return subquery(value.query, subject, qualify)
+          #     else
+          #     return conditions_statement(comparison.foreign_key_mapping, queryblock)
+          #  end
         end
         return queryblock
       end
 
       def conditions_statement(conditions,queryblock, negate = false)
         case conditions
-        when Query::Conditions::NotOperation then negate_operation(conditions.operand, queryblock,negate)
-        when Query::Conditions::AbstractOperation  then operation_statement(conditions,queryblock,negate)
-        when Query::Conditions::AbstractComparison then comparison_statement(conditions,queryblock,negate)
-        when Array
-          statement, bind_values = conditions  # handle raw conditions
-          [ "(#{statement})", bind_values ].compact
+          when Query::Conditions::NotOperation then negate_operation(conditions.operand, queryblock,negate)
+          when Query::Conditions::AbstractOperation  then operation_statement(conditions,queryblock,negate)
+          when Query::Conditions::AbstractComparison then comparison_statement(conditions,queryblock,negate)
+          when Array
+            statement, bind_values = conditions  # handle raw conditions
+            [ "(#{statement})", bind_values ].compact
 
-      else
-        return queryblock
-      end
+          else
+            return queryblock
+        end
       end
 
       # @api private
@@ -346,18 +390,18 @@ module DataMapper
         return queryblock
       end
 
-             # @api private
-        def negate_operation(operand, queryblock,negate)
-          if negate
-            return  conditions_statement(operand, queryblock,false)
-          else
-            return  conditions_statement(operand, queryblock,true)
-          end
-
-          #statement = "NOT(#{statement})" unless statement.nil?
-          # [ statement, bind_values ]
-        #  return queryblick
+      # @api private
+      def negate_operation(operand, queryblock,negate)
+        if negate
+          return  conditions_statement(operand, queryblock,false)
+        else
+          return  conditions_statement(operand, queryblock,true)
         end
+
+        #statement = "NOT(#{statement})" unless statement.nil?
+        # [ statement, bind_values ]
+        #  return queryblick
+      end
 
       # Make a new instance of the adapter. The @records ivar is the 'data-store'
       # for this adapter. It is not shared amongst multiple incarnations of this

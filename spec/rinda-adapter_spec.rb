@@ -85,7 +85,7 @@ describe 'Adapter' do
       end
       
       
-      describe 'inheritenence' do
+      describe 'inheritance' do
 
         before :all do
           
