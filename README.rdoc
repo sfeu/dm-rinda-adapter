@@ -1,0 +1,63 @@
+= cassowary
+
+* http://github.com/sfeu/dm-rinda-adapter
+
+== DESCRIPTION:
+
+The dm-rinda-adapter project implements an datamapper interface for
+storing records in the rinda tuple space.
+
+The adpater has only tested with datamapper 0.10.2 so far.
+
+== FEATURES/PROBLEMS:
+
+Please consider the current version as software that is still not finished.
+
+Currently we can only say that "it works for us"...
+
+We are using this datamapper to coordinate difefrent media and modes
+of multimodal user interfaces with the Multimodal INTeraction framework (MINT).
+
+See http://www.multi-access.de
+
+Please not that these adapter exends the Datamapper adapter API with
+a proprietary wait and notfiy functionality to reflect the idea of
+a tuple space to subscribe for data changes.
+
+== SYNOPSIS:
+
+(sorry - we will add later)
+
+== REQUIREMENTS:
+
+Requires datamapper version 0.10.2, see http://datamapper.org
+
+== INSTALL:
+
+sudo gem install dm-rindap-adapter
+
+== LICENSE:
+
+Licensed under the Lesser/Library GPL v2.1 or any version above.
+
+Copyright (c) 2011 Sebastian Feuerstack
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
