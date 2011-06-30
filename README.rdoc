@@ -34,7 +34,7 @@ Requires datamapper version 0.10.2, see http://datamapper.org
 
 == INSTALL:
 
-sudo gem install dm-rindap-adapter
+sudo gem install dm-rinda-adapter
 
 == LICENSE:
 
