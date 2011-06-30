@@ -64,7 +64,7 @@ describe 'Adapter' do
         end  
         
         it 'should properly respond to  double element #create#  after subscription by notify' do
-          
+          pending
           @receiver = Receiver.new()
           
           Heffalump.notify("write", { :color =>"black" },@receiver.method(:callback_method))    
