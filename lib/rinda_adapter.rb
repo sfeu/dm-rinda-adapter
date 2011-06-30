@@ -7,23 +7,23 @@ require 'rinda-patch'
 module DataMapper
 
   class Repository
-    def notify(action,query,callback,model,dm_query)
-      adapter.notify(action,query,callback,model,dm_query)
+    def notify(action,query,callback,model,dm_query,time)
+      adapter.notify(action,query,callback,model,dm_query,time)
     end
 
-    def wait(action,query,callback,model,dm_query)
-      adapter.notify(action,query,callback,model,dm_query)
+    def wait(action,query,callback,model,dm_query,time)
+      adapter.notify(action,query,callback,model,dm_query,time)
     end
   end
 
   module Model
-    def notify(action,query,callback)
+    def notify(action,query,callback,time = nil)
       q = scoped_query(query)
-      q.repository.notify(action,query,callback,self,q)
+      q.repository.notify(action,query,callback,self,q,time)
     end
-    def wait(action,query,callback)
+    def wait(action,query,callback,time = nil)
       q = scoped_query(query)
-      q.repository.notify(action,query,callback,self,q)
+      q.repository.notify(action,query,callback,self,q, time)
     end
   end
 
@@ -31,10 +31,10 @@ module DataMapper
 
     #monkey patching new notification methods
     class AbstractAdapter
-      def notify(action,query,callback,model,dm_query)
+      def notify(action,query,callback,model,dm_query,time)
         raise NotImplementedError, "#{self.class}#notify not implemented"
       end
-      def wait(action,query,callback,model,dm_query)
+      def wait(action,query,callback,model,dm_query,time)
         raise NotImplementedError, "#{self.class}#wait not implemented"
       end
 
@@ -212,13 +212,13 @@ module DataMapper
       end
 
 
-      def wait(action,query,callback,model,dm_query)
+      def wait(action,query,callback,model,dm_query,time = 10000)
 
         query = generate_query(model).merge create_conditions(dm_query)
 
         x = Thread.start do
           begin
-            t = @ts.read query,10
+            t = @ts.read query,(time/1000)
           end until t and check_descendents(model,t) # quick patch that belongs into tuplespace
 
           repository = dm_query.repository
@@ -233,9 +233,9 @@ module DataMapper
         x
       end
 
-      def notify(action,query,callback,model,dm_query)
+      def notify(action,query,callback,model,dm_query,time = nil)
         x = Thread.start do
-          observer = notifyInternal(model, action, query)
+          observer = notifyInternal(model, action, query,time)
           DataMapper.logger <<  "waiting on #{model.to_s} model new #{action} changes with a state change to #{query.inspect}"
 
           observer.each do |e,t|
@@ -281,7 +281,7 @@ module DataMapper
 
       # Returns a tupleSpace Observer that waits for an {action} bason on a hash of
       # {conditions}
-      def notifyInternal(model,action,conditions)
+      def notifyInternal(model,action,conditions,time = nil)
         query = generate_query(model)
         DataMapper.logger <<  "notify query generated #{query.inspect}"
 #        DataMapper.logger <<  "notify query generated11111 #{resource.attributes.inspect}"
@@ -295,7 +295,11 @@ module DataMapper
         query = query.merge newconditions
         DataMapper.logger <<  "notify query after merge of conditions #{query.inspect}"
 
-        @ts.notify action,query
+        if (time)
+          @ts.notify action,query,(time/1000)
+        else
+          @ts.notify action,query
+        end
       end
 
 
