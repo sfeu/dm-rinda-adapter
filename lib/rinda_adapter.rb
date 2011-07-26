@@ -129,19 +129,25 @@ module DataMapper
         DataMapper.logger <<  "result  #{result.inspect}"
         #Kernel.const_get(s)
 
+
         query.fields.each do |property|
           if (property.type == DataMapper::Types::Discriminator)
 
             key = property.name.to_s
             result.each do |entry|
+              begin
               entry[key]=eval(entry[key].to_s)
+              rescue NameError => e
+                DataMapper.logger <<  "unknown symbol #{e.to_s}"
+                end
+
             end
           end
         end
 #         DataMapper.logger <<  "result after  transformation of discriminators  #{result.inspect}"
-
         query.filter_records(result)
-      end
+
+        end
 
       # Used by DataMapper to update the attributes on existing records in a
       # data-store: "UPDATE" in SQL-speak. It takes a hash of the attributes
