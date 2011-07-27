@@ -18,6 +18,8 @@ Echoe.new('dm-rinda-adapter', '0.1.0') do |p|
   p.email          = "sebastian @nospam@ feuerstack.de"
   p.ignore_pattern = ["tmp/*", "script/*","#*.*#"]
   p.development_dependencies = []
+  p.runtime_dependencies     = []
+  p.runtime_dependencies     << 'dm-core           ~>0.10.2'
   p.need_tar_gz = false
   p.need_tgz = false 
 end
