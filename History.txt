@@ -7,3 +7,7 @@
 * switched to Hoe for gem packaging
 * fixed unknown symbol error that happens if a model is part of a query result but not known
 
+=== 0.1.2 / 2011-11-01
+
+* 0.1.1 was created without History and Manifest files
+
