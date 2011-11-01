@@ -1,5 +1,10 @@
-Manifest
+Gemfile
+Gemfile.lock
+History.txt
+Manifest.txt
+README.rdoc
 Rakefile
+dm-rinda-adapter.gemspec
 lib/rinda-patch.rb
 lib/rinda_adapter.rb
 spec/legacy/README
