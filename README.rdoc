@@ -1,4 +1,4 @@
-= cassowary
+= dm-rinda-adapter
 
 * http://github.com/sfeu/dm-rinda-adapter
 

@@ -1,49 +1,29 @@
 require 'rubygems'
-require 'rake'
-require 'echoe'
+require 'hoe'
 
-def with_gem(gemname, &blk)
-  begin
-    require gemname
-    blk.call
-  rescue LoadError => e
-    puts "Failed to load gem #{gemname} because #{e}."
-  end
+# Hoe.plugin :compiler
+# Hoe.plugin :cucumberfeatures
+# Hoe.plugin :gem_prelude_sucks
+# Hoe.plugin :inline
+# Hoe.plugin :manifest
+Hoe.plugin :newgem
+# Hoe.plugin :racc
+# Hoe.plugin :rubyforge
+# Hoe.plugin :website
+
+Hoe.spec 'dm-rinda-adapter' do
+  self.developer 'Sebastian Feuerstack', 'Sebastian@Feuerstack.org'
+  self.rubyforge_name       = self.name # TODO this is default value
+  self.extra_deps         = [['dm-core','~> 0.10.2']]
+  self.email = "Sebastian@Feuerstack.org"
+
+  # HEY! If you fill these out in ~/.hoe_template/Rakefile.erb then
+  # you'll never have to touch them again!
+  # (delete this comment too, of course)
+
+  # developer('FIX', 'FIX@example.com')
+
+  # self.rubyforge_name = 'scxml-gemx' # if different than 'scxml-gem'
 end
 
-Echoe.new('dm-rinda-adapter', '0.1.0') do |p|
-  p.description    = "A datamapper adapter to connect to a rinda tuplespace"
-  p.url            = "http://github.com/sfeu/dm-rinda-adapter"
-  p.author         = "Sebastian Feuerstack"
-  p.email          = "sebastian @nospam@ feuerstack.de"
-  p.ignore_pattern = ["tmp/*", "script/*","#*.*#"]
-  p.development_dependencies = []
-  p.runtime_dependencies     = []
-  p.runtime_dependencies     << 'dm-core           ~>0.10.2'
-  p.need_tar_gz = false
-  p.need_tgz = false 
-end
-
-with_gem 'spec/rake/spectask' do
-  
-  desc 'Run all specs'
-  Spec::Rake::SpecTask.new(:spec) do |t|
-    t.spec_opts << '--options' << 'spec/spec.opts' if File.exists?('spec/spec.opts')
-    t.libs << 'lib'
-    t.spec_files = FileList['spec/**_spec.rb']
-  end
- 
-  desc 'Default: Run Specs'
-  task :default => :spec
- 
-  desc 'Run all tests'
-  task :test => :spec
- 
-end
- 
-with_gem 'yard' do
-  desc "Generate Yardoc"
-  YARD::Rake::YardocTask.new do |t|
-    t.files = ['lib/**/*.rb', 'README.markdown']
-  end
-end
+# vim: syntax=ruby
