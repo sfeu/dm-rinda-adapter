@@ -1,4 +1,5 @@
 module Rinda # dirty monkey patching to retrieve unique running ID, primitiv einc beacuse touble nested tuplebag storage with symbols. 
+
   class TupleSpace
    
      def initialize(period=60)

@@ -49,6 +49,8 @@ module DataMapper
     # budding adapter developers, so it is critical that it remains well documented
     # and up to date.
     class RindaAdapter < AbstractAdapter
+	  VERSION = "0.1.2"
+
       #include MonitorMixin
 
       # Used by DataMapper to put records into a data-store: "INSERT" in SQL-speak.
