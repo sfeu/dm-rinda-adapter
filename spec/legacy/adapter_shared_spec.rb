@@ -1,5 +1,5 @@
 
-require 'rubygems'; require 'ruby-debug'; 
+require 'rubygems'
 
 share_examples_for 'An Adapter' do
 
