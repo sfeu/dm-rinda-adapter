@@ -6,7 +6,7 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = Gem::Requirement.new(">= 1.2") if s.respond_to? :required_rubygems_version=
   s.authors = [%q{Sebastian Feuerstack}]
-  s.date = %q{2011-07-27}
+  s.date = %q{2011-08-08}
   s.description = %q{A datamapper adapter to connect to a rinda tuplespace}
   s.email = %q{sebastian @nospam@ feuerstack.de}
   s.extra_rdoc_files = [%q{lib/rinda-patch.rb}, %q{lib/rinda_adapter.rb}]
